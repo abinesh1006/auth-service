@@ -1,0 +1,383 @@
+{
+  "info": {
+    "name": "Spring Authorization Server - OAuth2 JWT",
+    "description": "Complete OAuth2 Authorization Code Flow with JWT token generation",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "noauth"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Generate Base64 encoded client credentials",
+          "const clientId = pm.environment.get('client_id');",
+          "const clientSecret = pm.environment.get('client_secret');",
+          "const credentials = btoa(clientId + ':' + clientSecret);",
+          "pm.environment.set('client_credentials_base64', credentials);"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "{{auth_server_url}}"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. OAuth2 Authorization Flow",
+      "item": [
+        {
+          "name": "1.1 Get Authorization Code (Manual)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{auth_server_url}}/oauth2/authorize?response_type=code&client_id={{client_id}}&redirect_uri={{redirect_uri}}&scope={{scope}}&state=test-state",
+              "host": ["{{auth_server_url}}"],
+              "path": ["oauth2", "authorize"],
+              "query": [
+                {"key": "response_type", "value": "code"},
+                {"key": "client_id", "value": "{{client_id}}"},
+                {"key": "redirect_uri", "value": "{{redirect_uri}}"},
+                {"key": "scope", "value": "{{scope}}"},
+                {"key": "state", "value": "test-state"}
+              ]
+            },
+            "description": "Copy this URL and open in browser. Login with admin/admin123, then copy authorization code from callback URL"
+          }
+        },
+        {
+          "name": "1.2 Exchange Code for JWT Tokens",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.environment.set('access_token', response.access_token);",
+                  "    pm.environment.set('refresh_token', response.refresh_token);",
+                  "    pm.environment.set('id_token', response.id_token);",
+                  "    console.log('JWT Tokens saved to environment variables');",
+                  "    console.log('Access Token: ' + response.access_token.substring(0, 50) + '...');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/x-www-form-urlencoded"},
+              {"key": "Authorization", "value": "Basic {{client_credentials_base64}}"}
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {"key": "grant_type", "value": "authorization_code"},
+                {"key": "code", "value": "{{authorization_code}}"},
+                {"key": "redirect_uri", "value": "{{redirect_uri}}"}
+              ]
+            },
+            "url": {
+              "raw": "{{auth_server_url}}/oauth2/token",
+              "host": ["{{auth_server_url}}"],
+              "path": ["oauth2", "token"]
+            }
+          }
+        },
+        {
+          "name": "1.3 Refresh JWT Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.environment.set('access_token', response.access_token);",
+                  "    if (response.refresh_token) {",
+                  "        pm.environment.set('refresh_token', response.refresh_token);",
+                  "    }",
+                  "    console.log('JWT Token refreshed successfully');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/x-www-form-urlencoded"},
+              {"key": "Authorization", "value": "Basic {{client_credentials_base64}}"}
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {"key": "grant_type", "value": "refresh_token"},
+                {"key": "refresh_token", "value": "{{refresh_token}}"}
+              ]
+            },
+            "url": {
+              "raw": "{{auth_server_url}}/oauth2/token",
+              "host": ["{{auth_server_url}}"],
+              "path": ["oauth2", "token"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. JWT Token Management",
+      "item": [
+        {
+          "name": "2.1 Validate JWT Token",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{access_token}}"}
+            ],
+            "url": {
+              "raw": "{{auth_server_url}}/api/token/validate",
+              "host": ["{{auth_server_url}}"],
+              "path": ["api", "token", "validate"]
+            }
+          }
+        },
+        {
+          "name": "2.2 Get JWT Token Info",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{access_token}}"}
+            ],
+            "url": {
+              "raw": "{{auth_server_url}}/api/token/info",
+              "host": ["{{auth_server_url}}"],
+              "path": ["api", "token", "info"]
+            }
+          }
+        },
+        {
+          "name": "2.3 Introspect Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/x-www-form-urlencoded"},
+              {"key": "Authorization", "value": "Basic {{client_credentials_base64}}"}
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {"key": "token", "value": "{{access_token}}"}
+              ]
+            },
+            "url": {
+              "raw": "{{auth_server_url}}/oauth2/introspect",
+              "host": ["{{auth_server_url}}"],
+              "path": ["oauth2", "introspect"]
+            }
+          }
+        },
+        {
+          "name": "2.4 Revoke Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/x-www-form-urlencoded"},
+              {"key": "Authorization", "value": "Basic {{client_credentials_base64}}"}
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {"key": "token", "value": "{{access_token}}"}
+              ]
+            },
+            "url": {
+              "raw": "{{auth_server_url}}/oauth2/revoke",
+              "host": ["{{auth_server_url}}"],
+              "path": ["oauth2", "revoke"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. User Management API (Protected)",
+      "item": [
+        {
+          "name": "3.1 Get All Users",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{access_token}}"}
+            ],
+            "url": {
+              "raw": "{{auth_server_url}}/api/users",
+              "host": ["{{auth_server_url}}"],
+              "path": ["api", "users"]
+            }
+          }
+        },
+        {
+          "name": "3.2 Create User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{access_token}}"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"newuser\",\n  \"email\": \"newuser@example.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{auth_server_url}}/api/users",
+              "host": ["{{auth_server_url}}"],
+              "path": ["api", "users"]
+            }
+          }
+        },
+        {
+          "name": "3.3 Get User by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{access_token}}"}
+            ],
+            "url": {
+              "raw": "{{auth_server_url}}/api/users/{{user_id}}",
+              "host": ["{{auth_server_url}}"],
+              "path": ["api", "users", "{{user_id}}"]
+            }
+          }
+        },
+        {
+          "name": "3.4 Change Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{access_token}}"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"newPassword\": \"newpassword123\"\n}"
+            },
+            "url": {
+              "raw": "{{auth_server_url}}/api/users/{{user_id}}/change-password",
+              "host": ["{{auth_server_url}}"],
+              "path": ["api", "users", "{{user_id}}", "change-password"]
+            }
+          }
+        },
+        {
+          "name": "3.5 Block User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{access_token}}"}
+            ],
+            "url": {
+              "raw": "{{auth_server_url}}/api/users/{{user_id}}/block",
+              "host": ["{{auth_server_url}}"],
+              "path": ["api", "users", "{{user_id}}", "block"]
+            }
+          }
+        },
+        {
+          "name": "3.6 Unblock User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{access_token}}"}
+            ],
+            "url": {
+              "raw": "{{auth_server_url}}/api/users/{{user_id}}/unblock",
+              "host": ["{{auth_server_url}}"],
+              "path": ["api", "users", "{{user_id}}", "unblock"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. OpenID Connect & Discovery",
+      "item": [
+        {
+          "name": "4.1 OpenID Configuration",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{auth_server_url}}/.well-known/openid-configuration",
+              "host": ["{{auth_server_url}}"],
+              "path": [".well-known", "openid-configuration"]
+            }
+          }
+        },
+        {
+          "name": "4.2 JWKS (JSON Web Key Set)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{auth_server_url}}/.well-known/jwks.json",
+              "host": ["{{auth_server_url}}"],
+              "path": [".well-known", "jwks.json"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Application Endpoints",
+      "item": [
+        {
+          "name": "5.1 Home Page",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{auth_server_url}}/",
+              "host": ["{{auth_server_url}}"],
+              "path": [""]
+            }
+          }
+        },
+        {
+          "name": "5.2 User Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{access_token}}"}
+            ],
+            "url": {
+              "raw": "{{auth_server_url}}/profile",
+              "host": ["{{auth_server_url}}"],
+              "path": ["profile"]
+            }
+          }
+        },
+        {
+          "name": "5.3 Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{auth_server_url}}/actuator/health",
+              "host": ["{{auth_server_url}}"],
+              "path": ["actuator", "health"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
