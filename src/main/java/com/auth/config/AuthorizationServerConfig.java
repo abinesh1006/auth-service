@@ -3,6 +3,7 @@ package com.auth.config;
 import com.auth.repository.OAuth2AuthorizationRepository;
 import com.auth.service.CustomUserDetailsService;
 import com.auth.service.JpaOAuth2AuthorizationService;
+import com.auth.service.LogoutService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.RSAKey;
@@ -38,8 +39,13 @@ import org.springframework.security.oauth2.server.authorization.settings.ClientS
 import org.springframework.security.oauth2.server.authorization.settings.TokenSettings;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
+import org.springframework.security.web.authentication.logout.LogoutSuccessHandler;
 import org.springframework.security.web.util.matcher.MediaTypeRequestMatcher;
 
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.interfaces.RSAPrivateKey;
@@ -87,6 +93,14 @@ public class AuthorizationServerConfig {
                         .requestMatchers("/oauth2/**").permitAll()
                         .requestMatchers("/.well-known/**").permitAll()
                         .requestMatchers("/logout").permitAll()
+                        .requestMatchers("/api/logout").permitAll()
+                        .requestMatchers("/api/revoke-token").authenticated()
+                        // Swagger UI endpoints
+                        .requestMatchers("/swagger-ui/**").permitAll()
+                        .requestMatchers("/swagger-ui.html").permitAll()
+                        .requestMatchers("/v3/api-docs/**").permitAll()
+                        .requestMatchers("/swagger-resources/**").permitAll()
+                        .requestMatchers("/webjars/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .formLogin(form -> form
@@ -95,14 +109,14 @@ public class AuthorizationServerConfig {
                 )
                 .logout(logout -> logout
                         .logoutUrl("/logout")
-                        .logoutSuccessUrl("/login?logout")
+                        .logoutSuccessHandler(customLogoutSuccessHandler())
                         .invalidateHttpSession(true)
                         .clearAuthentication(true)
                         .deleteCookies("JSESSIONID")
                         .permitAll()
                 )
                 .userDetailsService(customUserDetailsService)
-                .csrf(csrf -> csrf.ignoringRequestMatchers("/h2-console/**", "/oauth2/**"));
+                .csrf(csrf -> csrf.ignoringRequestMatchers("/h2-console/**", "/oauth2/**", "/api/**", "/swagger-ui/**", "/v3/api-docs/**"));
 
         // Allow H2 console frames
         http.headers(headers -> headers.frameOptions().disable());
@@ -111,15 +125,39 @@ public class AuthorizationServerConfig {
     }
 
     @Bean
+    public LogoutSuccessHandler customLogoutSuccessHandler() {
+        return new LogoutSuccessHandler() {
+            @Autowired
+            private LogoutService logoutService;
+
+            @Override
+            public void onLogoutSuccess(HttpServletRequest request, HttpServletResponse response,
+                                      org.springframework.security.core.Authentication authentication)
+                    throws IOException, ServletException {
+                
+                // Perform database cleanup of OAuth2 tokens
+                if (authentication != null) {
+                    logoutService.performCompleteLogout(authentication);
+                }
+                
+                // Redirect to login page with logout parameter
+                response.sendRedirect("/login?logout");
+            }
+        };
+    }
+
+    @Bean
     public RegisteredClientRepository registeredClientRepository() {
         RegisteredClient oidcClient = RegisteredClient.withId(UUID.randomUUID().toString())
                 .clientId("auth-client")
                 .clientSecret(passwordEncoder().encode("secret"))
+                .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_POST)
                 .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
                 .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
                 .authorizationGrantType(AuthorizationGrantType.REFRESH_TOKEN)
                 .redirectUri("http://127.0.0.1:8080/login/oauth2/code/auth-client")
                 .redirectUri("http://127.0.0.1:8080/authorized")
+                .redirectUri("http://localhost:8080/swagger-ui/oauth2-redirect.html")
                 .redirectUri("https://oauth.pstmn.io/v1/callback")
                 .postLogoutRedirectUri("http://127.0.0.1:8080/")
                 .scope(OidcScopes.OPENID)
