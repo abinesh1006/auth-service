@@ -74,7 +74,6 @@ public class HomeController {
         @ApiResponse(responseCode = "200", description = "Authorization successful", 
                     content = @Content(mediaType = "text/html"))
     })
-    @SecurityRequirement(name = "Bearer Authentication")
     @GetMapping("/authorized")
     @ResponseBody
     public String authorized(
@@ -93,7 +92,6 @@ public class HomeController {
                     content = @Content(mediaType = "text/html")),
         @ApiResponse(responseCode = "401", description = "Unauthorized")
     })
-    @SecurityRequirement(name = "Bearer Authentication")
     @GetMapping("/profile")
     @ResponseBody
     public String profile(
@@ -112,7 +110,6 @@ public class HomeController {
         @ApiResponse(responseCode = "302", description = "Logout successful, redirecting to login page"),
         @ApiResponse(responseCode = "401", description = "User not authenticated")
     })
-    @SecurityRequirement(name = "Bearer Authentication")
     @PostMapping("/logout")
     public String logoutPost(
         @Parameter(description = "Authenticated user information", hidden = true) 
@@ -144,7 +141,6 @@ public class HomeController {
                     content = @Content(mediaType = "application/json",
                     examples = @ExampleObject(value = "{\"message\": \"No active session found\", \"status\": \"error\"}")))
     })
-    @SecurityRequirement(name = "Bearer Authentication")
     @PostMapping("/api/logout")
     @ResponseBody
     public String apiLogout(
@@ -182,7 +178,6 @@ public class HomeController {
                     content = @Content(mediaType = "application/json",
                     examples = @ExampleObject(value = "{\"message\": \"Unauthorized\", \"status\": \"error\"}")))
     })
-    @SecurityRequirement(name = "Bearer Authentication")
     @PostMapping("/api/revoke-token")
     @ResponseBody
     public String revokeToken(

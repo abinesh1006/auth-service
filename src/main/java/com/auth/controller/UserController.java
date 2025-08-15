@@ -50,7 +50,6 @@ public class UserController {
                         ]"""))),
         @ApiResponse(responseCode = "403", description = "Access denied - Admin role required")
     })
-    @SecurityRequirement(name = "Bearer Authentication")
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<User>> getAllUsers() {
@@ -79,7 +78,6 @@ public class UserController {
         @ApiResponse(responseCode = "404", description = "User not found"),
         @ApiResponse(responseCode = "403", description = "Access denied")
     })
-    @SecurityRequirement(name = "Bearer Authentication")
     @GetMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN') or #id == authentication.principal.id")
     public ResponseEntity<User> getUserById(
@@ -111,7 +109,6 @@ public class UserController {
         @ApiResponse(responseCode = "400", description = "Invalid request data or user already exists"),
         @ApiResponse(responseCode = "403", description = "Access denied - Admin role required")
     })
-    @SecurityRequirement(name = "Bearer Authentication")
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> createUser(
@@ -147,7 +144,7 @@ public class UserController {
         @ApiResponse(responseCode = "404", description = "User not found"),
         @ApiResponse(responseCode = "403", description = "Access denied")
     })
-    @SecurityRequirement(name = "Bearer Authentication")
+
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN') or #id == authentication.principal.id")
     public ResponseEntity<?> updateUser(
@@ -172,7 +169,7 @@ public class UserController {
         @ApiResponse(responseCode = "404", description = "User not found"),
         @ApiResponse(responseCode = "403", description = "Access denied - Admin role required")
     })
-    @SecurityRequirement(name = "Bearer Authentication")
+
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteUser(
@@ -191,7 +188,7 @@ public class UserController {
         @ApiResponse(responseCode = "404", description = "User not found"),
         @ApiResponse(responseCode = "403", description = "Access denied - Admin role required")
     })
-    @SecurityRequirement(name = "Bearer Authentication")
+
     @PostMapping("/{id}/block")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> blockUser(
@@ -210,7 +207,7 @@ public class UserController {
         @ApiResponse(responseCode = "404", description = "User not found"),
         @ApiResponse(responseCode = "403", description = "Access denied - Admin role required")
     })
-    @SecurityRequirement(name = "Bearer Authentication")
+
     @PostMapping("/{id}/unblock")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> unblockUser(
@@ -231,7 +228,7 @@ public class UserController {
         @ApiResponse(responseCode = "400", description = "Invalid password or user not found"),
         @ApiResponse(responseCode = "403", description = "Access denied")
     })
-    @SecurityRequirement(name = "Bearer Authentication")
+
     @PostMapping("/{id}/change-password")
     @PreAuthorize("hasRole('ADMIN') or #id == authentication.principal.id")
     public ResponseEntity<?> changePassword(
