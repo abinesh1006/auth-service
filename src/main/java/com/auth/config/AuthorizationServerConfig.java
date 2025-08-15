@@ -2,11 +2,9 @@ package com.auth.config;
 
 import java.io.IOException;
 import java.security.KeyPair;
-import java.security.KeyPairGenerator;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
 import java.util.List;
-import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -36,6 +34,7 @@ import com.auth.repository.OAuth2AuthorizationRepository;
 import com.auth.service.CustomUserDetailsService;
 import com.auth.service.DatabaseRegisteredClientRepository;
 import com.auth.service.JpaOAuth2AuthorizationService;
+import com.auth.service.KeyManagementService;
 import com.auth.service.LogoutService;
 import com.auth.service.RedisOAuth2AuthorizationService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -62,11 +61,17 @@ public class AuthorizationServerConfig {
     @Autowired
     private DatabaseRegisteredClientRepository databaseRegisteredClientRepository;
 
+    @Autowired
+    private KeyManagementService keyManagementService;
+
     @Value("${auth.server.issuer}")
     private String issuer;
 
     @Value("${auth.server.jwk.key-size}")
     private int keySize;
+
+    @Value("${auth.server.jwk.key-id}")
+    private String keyId;
 
     @Value("#{'${security.endpoints.public}'.split(',')}")
     private List<String> publicEndpoints;
@@ -216,27 +221,16 @@ public class AuthorizationServerConfig {
 
     @Bean
     public JWKSource<SecurityContext> jwkSource() {
-        KeyPair keyPair = generateRsaKey();
+        // Use persistent keys from KeyManagementService instead of generating new ones
+        KeyPair keyPair = keyManagementService.getOrCreateKeyPair();
         RSAPublicKey publicKey = (RSAPublicKey) keyPair.getPublic();
         RSAPrivateKey privateKey = (RSAPrivateKey) keyPair.getPrivate();
         RSAKey rsaKey = new RSAKey.Builder(publicKey)
                 .privateKey(privateKey)
-                .keyID(UUID.randomUUID().toString())
+                .keyID(keyId)  // Use configured key ID instead of random UUID
                 .build();
         JWKSet jwkSet = new JWKSet(rsaKey);
         return new ImmutableJWKSet<>(jwkSet);
-    }
-
-    private static KeyPair generateRsaKey() {
-        KeyPair keyPair;
-        try {
-            KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
-            keyPairGenerator.initialize(2048);
-            keyPair = keyPairGenerator.generateKeyPair();
-        } catch (Exception ex) {
-            throw new IllegalStateException(ex);
-        }
-        return keyPair;
     }
 
     @Bean
